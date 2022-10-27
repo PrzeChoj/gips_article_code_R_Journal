@@ -1,34 +1,26 @@
 ---
-title: Capitalized Title Here
+title: Gips
 author:
   # see ?rjournal_article for more information
-  - name: Author One
-    affiliation: Affiliation
+  - name: Przemysław Chojecki
+    affiliation: Warsaw University of Technology
     address:
-    - line 1
-    - line 2
-    url: https://journal.r-project.org
-    orcid: 0000-0002-9079-593X
+    - Koszykowa 75, 00-662 Warsaw
+    - Poland
     email:  author1@work
-  - name: Author Two
-    url: https://journal.r-project.org
-    email: author2@work
-    orcid: 0000-0002-9079-593X
-    affiliation: Affiliation 1
+  - name: Bartosz Kołodziejek
+    affiliation: Warsaw University of Technology
     address:
-    - line 1 affiliation 1
-    - line 2 affiliation 1
-    affiliation2: Affiliation 2
-    address2:
-    - line 1 affiliation 2
-    - line 2 affiliation 2
-  - name: Author Three
-    url: https://journal.r-project.org
-    email: author3@work
-    affiliation: Affiliation
+    - Koszykowa 75, 00-662 Warsaw
+    - Poland
+    email: b.kolodziejek@mini.pw.edu.pl
+    orcid: 0000-0002-5220-9012
+  - name: Paweł Morgen
+    affiliation: Warsaw University of Technology
     address:
-    - line 1 affiliation
-    - line 2 affiliation
+    - Koszykowa 75, 00-662 Warsaw
+    - Poland
+    email:  seriousmorgen@protonmail.com
 abstract: >
   An abstract of less than 150 words.
 preamble: |
@@ -36,7 +28,7 @@ preamble: |
   
 # per R journal requirement, the bib filename should be the same as the output 
 # tex file. Don't forget to rename the bib file and change this example value.
-bibliography: RJreferences.bib
+bibliography: article.bib
 
 output:
   bookdown::pdf_book:
@@ -45,8 +37,324 @@ output:
 
 ## Introduction
 
-Introductory section which may include references in parentheses
-[@R], or cite a reference such as @R in the text.
+High dimensional setting is and remains a challenge (@ElementsOfStatLearn i inne). 
+Carelessly performing standard tasks in it, like covariance matrix estimation or fitting a linear model, leads to results not supported by statistical theory. In this paper a problem of estimating covariance matrix $\Sigma$ of a multivariate Gaussian distribution with $\mathbf 0$ mean in high dimensional setting ($p >> n$) is considered. %M Może słowo, że original motivation to były modele grafowe, ale w oczywisty sposób ma to inne zastosowanie?
+
+If data is insufficient and some inference must be performed, one has to propose additional assumptions or restrictions. The canonical method of attacking the high-dimensionality problem is via RIDGE or LASSO estimation and model selection (used, for example, in \CRANpkg{huge}, \CRANpkg{hdi} and \CRANpkg{rags2ridges} packages). 
+%M TODO: Zdanie na temat interpratacji RIDGE/LASSO: This corresponds to restricting to models... 
+%M TODO: Zdanie na temat LDA/QDA. I może innych metod.
+
+We propose an alternative approach, originating from works of [@AnderssonInvariant], [@RCOP] and others. It aims to impose on the matrix $\Sigma$ some symmetry conditions (a set of certain equalities that it must satisfy or a certain structure that it must follow) and thus reduce the number of samples required for a statistically correct inference. E.g., if $\Sigma$ is restricted to matrices, that have constant diagonal entries and constant off-diagonal entries, then the standard Maximium Likelihood Estimator (MLE) requires only 1 sample and delivers statistically correct result. 
+%M TODO: co ten przykład mówi o zmiennych?
+
+A rich family of such symmetry conditions can be expressed using language of permutations (@AndersonPermSymmetry). Saying "the matrix $M$ is invariant under permutation $p$" is equivalent to saying "If you change the order of rows of $M$ according to $p$, and then change the order the columns according to $p$, then the emerging matrix $M'$ is the same as $M$." This is explored further in Preliminaries section.
+To our best knowledge, there are no software packages in R (and other programming languages), that tackle the subject of permutation symmetry.
+
+The \CRANpkg{gips} package, described in this paper, will help you with two things:
+\begin{enumerate}
+    \item Finding hidden symmetries between variables.
+    \item Estimating covariance.
+\end{enumerate}
+
+%M Może tutaj nowa sekcja pt Motivation?
+
+We argue that it is natural to expect certain symmetries in various applications. There are natural symmetries in the data from gene expression. Namely, expression of a given gene is triggered by binding the transcription factors to the gene transcription factor binding sites. The transcription factors are the proteins produced by other genes, say regulatory genes. In the gene network there are often many genes triggered by the same regulatory genes and it makes sense to assume that their relative expressions depend on the abundance of proteins of the regulatory genes (i.e. gene expressions) in a similar way. \CRANpkg{gips} can be used to identify genes having the same function or groups of genes having similar interactions or regulated by the same mechanism. 
+
+The discovery of hidden symmetries can make a fundamental contribution to understanding complex
+mechanisms. Extracting patterns from the expression profile would provide great insight into gene function and regulatory systems. Clustering genes with expression profiles can be utilized to predict the functions of gene products with functions that are unknown, and to identify sets of genes that are regulated by the same mechanism.
+
+Warto to robic nie tylko na potrzeby estymacji kowariancji, ale rowniez by lepiej zrozumiec dane. Genetyke, kolorowe grafy, itp.
+
+Majac skonczona probke, rownosci typu \eqref{eq:sigma} zachodza z p-stwem $0$. Jest to analityczna metoda pozwalajaca na odkrycie takich przyblizonych rownosci oraz przeszukanie olbrzymiej przestrzeni mozliwych symetrii.
+
+## Illustration of permutation symmetry
+
+Let us illustrate the concept of permutation symmetry using package \CRANpkg{gips} in a simple use case. We'll be using `aspirin` data from \CRANpkg{HSAUR} package. We will specify a permutation here manually. It can be done algorithmically using \CRANpkg{gips} package, but this feature is not the focus of this section. 
+
+```{r}
+library(gips)
+data("aspirin", package="HSAUR")
+
+print(head(aspirin))
+Z <- aspirin
+
+# Renumber the columns for better readability:
+Z[,c(2,3)] <- Z[,c(3,2)]
+# code below is just setting up helper functions and labelling data
+names(Z) <- NULL
+my_add_text <- function(gg_plot_object){
+  my_col_names <- c("deaths after placebo", "deaths after Aspirin",
+                    "treated with placebo", "treated with Aspirin")
+  
+  suppressMessages( # message from ggplot2
+    out <- gg_plot_object +
+      ggplot2::scale_x_continuous(labels = my_col_names,
+                                  breaks = 1:4) +
+      ggplot2::scale_y_reverse(labels = my_col_names,
+                               breaks = 1:4) +
+      ggplot2::theme(axis.text.x = ggplot2::element_text(angle=8))
+  )
+  
+  out
+}
+
+# NOW
+# Assume, that Z is normally distributed
+dim(Z)
+number_of_observations <- nrow(Z) # 7
+perm_size <- ncol(Z) # 4
+
+S <- cov(Z)
+round(S)
+```
+
+After loading data and some preprocessing, we are ready to proceed with creating a `gips` object. Such objects contain information about the (covariance) matrix, the search process and the found permutation, under which the data seems reasonably invariant. Here also `plot` method for them is demonstrated.
+
+Since no optimization occurred, the identity permutation is applied, which corresponds to no permutation symmetry. 
+
+```{r}
+g <- gips(S, number_of_observations)
+my_add_text(plot(g, type = "heatmap"))
+```
+
+We can see some strong similarities between the covariances of columns 3 and 4. Those have similar variances (`S[3,3]` $\approx$ `S[4,4]`), and their covariances with the rest of the columns are alike (`S[1,3]` $\approx$ `S[1,4]` and `S[2,3]` $\approx$ `S[2,4]`). 
+
+Using the language of permutations we say, that **the covariance matrix is invariant under $(3,4)$ permutation**. This means, that the following should be considered pairwise equal:
+\begin{itemize}
+    \item variances [3,3] and [4,4]
+    \item covariances [1,3] and [1,4]
+    \item covariances [2,3] and [2,4].
+\end{itemize}
+
+The variances of columns 1 and 2 are also similar, but the covariances with other columns (3 and 4) are not, therefore we do not make additional assumptions. 
+
+Under this new assumption, we can give a new estimate for covariance matrix. Theoretically, we are projecting the matrix on the space of positive definite matrices invariant under permutation $(3,4)$. In practice, we replace some sets of entries with their averages.
+
+```{r}
+g_with_perm <- gips(S, number_of_observations, perm="(3,4)")
+S_projected <- project_matrix(S, g_with_perm)
+round(S_projected)
+
+my_add_text(plot(g_MAP, type = "heatmap"))
+```
+
+This `S\_projected` matrix can now be interpreted as a more stable covariance matrix estimator.
+
+We can also interpret the data suggesting there is, for example, the same covariance of "number of deaths after Aspirin" with "number of people treated with X" no matter if the "X" represents the placebo or Aspirin.
+
+## Preliminaries
+Fix $p\in\{1,2,\ldots\}$. Let $Z=(Z_1,...,Z_p)$ be a multivariate random variable following a centered Gaussian model $\mathrm{N}_p(0,\Sigma)$.
+Let $\mathrm{Sym}(p;\mathbb{R})$ and $\mathrm{Sym}^+(p;\mathbb{R})$ denote the space of $p\times p$ symmetric matrices and the corresponding cone of positive definite matrices.
+Let $V=\{1,...p\}$ be a finite index set. Finally, let $\mathfrak{S}_p$ denote the symmetric group on $V$, that is, the group of all permutations on $\{1,...,p\}$ with function composition as group operation. 
+
+For a subgroup $\Gamma \subset  \mathfrak{S}_p$,
+	we define the colored space, i.e., the space of symmetric matrices invariant under $\Gamma$, 
+	\[
+	\mathcal{Z}_{\Gamma} 
+	:= \{S \in \mathrm{Sym}(p;\mathbb{R})\colon S_{ij} = S_{\sigma(i)\sigma(j)} \mbox{ for all }\sigma \in \Gamma\},
+	\]
+	and the colored cone of positive definite matrices valued in $\mathcal{Z}_{\Gamma}$,
+	\[
+	\label{def:Pgamma}
+	\mathcal{P}_{\Gamma} := \mathcal{Z}_{\Gamma} \cap \mathrm{Sym}^+(p;\mathbb{R}).
+	\]
+	This definition is closely connected with the key idea of this paper, so let us dive into it further.
+	
+### Permutation symmetry
+Let $\Gamma$ be an arbitrary subgroup of $\mathfrak{S}_p$.
+We say that the distribution of $Z$ is invariant by a subgroup $\Gamma$ if $Z$ has the same distribution as $(Z_{\sigma(i)})_{i\in V}$ for all $\sigma\in\Gamma$. This invariance property can be expressed as a condition on the covariance matrix: $Z$ is invariant by $\Gamma$ if and only if for all $i,j\in V$,
+\begin{align}\label{eq:sigma}
+\Sigma_{ij}=\Sigma_{\sigma(i)\sigma(j)}\quad\mbox{for all}\quad \sigma\in\Gamma.
+\end{align}
+If $\Gamma=\mathfrak{S}_p$, then the above conditions imply that all diagonal entries of $\Sigma$ are the same and, similarly, the off-diagonal entries are the same.  On the other hand, if $\Gamma$ is the trivial subgroup, i.e., $\Gamma=\{\mathrm{id}\}$, then \eqref{eq:sigma} does not impose any restrictions on the entries of $\Sigma$. If $\Gamma$ is non-trivial, then the sample size $n$ required for the MLE to exist is lower than $p$. 
+
+### Other preliminaries
+
+	Note that the mapping $\Gamma\mapsto\mathcal{Z}_\Gamma$ is not one-to-one. In particular, it is easy to see that with $p=3$ we have $\mathcal{Z}_{\left<(1,2,3)\right>}=\mathcal{Z}_{\mathfrak{S}_3}$.
+	In view of \eqref{eq:sigma}, we see that $Z$ is invariant by $\Gamma$ if and only if $\Sigma\in \mathcal{P}_{\Gamma}$.
+
+	 Each permutation $\sigma\in\mathfrak{S}_p$
+	can be represented in a cyclic form. E.g., if $\sigma\colon 1\mapsto 2, 2\mapsto 1, 3\mapsto 3$, then $\sigma=(1,2)(3)$. The number of cycles, denoted hereafter by  $C_\sigma$, is the same for all such cyclic representations. Note that in $C_\sigma$, we also count the cycles of length $1$. 
+	
+	We say that a permutation subgroup $\Gamma\subset\mathfrak{S}_p$ is cyclic if $\Gamma=\{\sigma, \sigma^2,\ldots,\sigma^N\}=:\left<\sigma\right>$ for some $\sigma\in\mathfrak{S}_p$, where $N$ is the smallest positive integer for which $\sigma^N=\mathrm{id}$.  Then $N$ is called the order of the subgroup $\Gamma$.  
+	If $p_i$ is the length of $i$th cycle in a cyclic decomposition of $\sigma\in\mathfrak{S}_p$, then $N$ equals the least common multiple of $p_1,\,p_2, \dots, p_{C_\sigma}$. We note that the mapping $\sigma\mapsto\left<\sigma\right>$ is not one-to-one. Indeed, we have $\left<\sigma\right>=\langle\sigma^k\rangle$ for all $k=1,\ldots,N-1$, which are coprime with $N$. 
+
+The important feature of cyclic subgroups is that they correspond to different colored spaces. More precisely, if $\mathcal{Z}_{\left<\sigma\right>}=\mathcal{Z}_{\left<\sigma'\right>}$ for some $\sigma,\sigma'\in\mathfrak{S}_p$, then $\left<\sigma\right>=\left<\sigma'\right>$.
+	
+\subsection{The MLE of $\Sigma$ in the Gaussian model invariant by permutation symmetry}
+Let $Z^{(1)},\ldots,Z^{(n)}$ be an i.i.d. sample from $\mathrm{N}_p(0,\Sigma)$. Thanks to equality restrictions in \eqref{eq:sigma}, the permutation invariant models have fewer parameters to estimate. Therefore the sample size required for the MLE to exist is lower than $p$. Assume that $\Sigma\in\mathcal{P}_\Gamma$, where $\Gamma$ is a cyclic subgroup, say $\Gamma=\left<\sigma\right>$. Then, the MLE of $\Sigma$ exists if and only if
+	\begin{align}\label{eq:n0}
+	n \ge C_\sigma.
+	\end{align}
+In particular, if $\sigma=\mathrm{id}$, then no restrictions are imposed on $\Sigma$, and we recover the well-known condition that the number of samples $n$ has to be greater or equal to the number of variables $C_{\mathrm{id}}=p$. However, if $\sigma$ consists of a single cycle, i.e., $C_\sigma=1$, then the MLE always exists. This remarkable observation may be crucial when parsimony is needed, i.e., when the sample size is small compared to the number of variables. It is therefore of interest to develop an efficient tool for finding the permutation symmetry in the data. 
+
+If \eqref{eq:n0} is satisfied, then the MLE of $\Sigma$ is given by
+	\[
+	\hat{\Sigma} =  \pi_{\Gamma}\left(\frac{1}{n}\sum_{i=1}^n Z^{(i)}\cdot (Z^{(i)})^\top\right),
+	\]
+	where $\pi_\Gamma$ is the orthogonal projection on the colored space $\mathcal{Z}_\Gamma$, which is defined by%can be efficiently computed using the formula
+\[
+\pi_\Gamma(X) = \frac{1}{\#\Gamma} \sum_{\sigma\in\Gamma} \sigma\cdot X\cdot \sigma^\top,
+%(\pi_\Gamma(X))_{ij} = \frac1{\#\mathcal{O}_{ij}} \sum_{(k,l)\in \mathcal{O}_{ij}} X_{kl}, \quad (i,j)\in V^2.
+\]
+where we identify the permutation $\sigma$ with its permutation matrix. %$\mathcal{O}_{ij}=\{(\sigma(i),\sigma(j))\colon \sigma\in \Gamma\}$. 
+
+## Bayesian model and theory
+
+The following model was introduced in [@GIKM]. Suppose that the multivariate Gaussian sample $Z^{(1)},\ldots, Z^{(n)}$ given $\{K=k, \Gamma=c\}$ consists of i.i.d. $\mathrm{N}_p(0,k^{-1})$ random vectors with $k\in \mathcal{P}_{c}$.
+Let $\Gamma$ be uniformly distributed on the set $\mathcal{C}:=\{\left<\sigma\right>\colon\sigma\in\mathfrak{S}_p\}$ of cyclic subgroups of $\mathfrak{S}_p$. Assume that $K$ given $\{\Gamma=c\}$ follows the Diaconis-Ylvisaker conjugate prior distribution defined by its density
+\[
+f_{K|\Gamma=c}(k)=\frac1{I_{c} (\delta,D)} {\mathrm{Det}(k)^{(\delta-2)/2} e^{- \tfrac12 \mathrm{Tr}[D\cdot k]} }
+{\bf 1}_{\mathcal{P}_{c}}(k),
+\]
+where $\delta>0$ and $D\in \mathcal{P}_{\Gamma}$ are the parameters and $I_c(\delta,D)$ is the normalizing constant, $c\in\mathcal{C}$. Although the choice of hyper-parameters is not scale invariant, it is a common practice to take $\delta=3$ and $D=I_p$.
+
+Then, it is easily seen that the posterior probability is proportional to
+\begin{align}\label{eq:defpp}
+\mathbb{P}\left(\Gamma=c|Z^{(1)},\ldots,Z^{(n)}\right) \propto \frac{ I_{c}(\delta + n, D+U)}{I_{c}(\delta,D)},\qquad c\in\mathcal{C}.
+\end{align}
+with $U=\sum_{i=1}^n Z^{(i)}\cdot (Z^{(i)})^\top$. In order to exploit \eqref{eq:defpp}, one has to be able to calculate, or at least approximate, the quotients of the normalizing constants. 
+
+Following the Bayesian paradigm, we choose the cyclic subgroup with the highest posterior probability, i.e.,
+\begin{align}\label{eq:gammahat}
+\hat{\Gamma} = \operatorname{arg\,max}_{c\in\mathcal{C}} \mathbb{P}\left(\Gamma=c|Z^{(1)},\ldots,Z^{(n)}\right).
+\end{align}
+
+[@GIKM] gave general formulas for these normalizing constants. They depend on the so-called structure constants, which are the parameters of the block decomposition of the colored space $\mathcal{Z}_\Gamma$, which we introduce hereafter.
+
+### Block decomposition of the colored space
+
+	Let $\Gamma=\left<\sigma\right>$ be a cyclic group of order $N$. We present the steps required to find the ingredients, which are necessary for the calculation of the normalizing constants $I_\Gamma(\delta,D)$.
+	
+	Let $p_i$ be the length of $i$th cycle in a cyclic decomposition of $\sigma\in\mathfrak{S}_p$ and let $\{i_1, \dots, i_{C_\sigma}\}$ be a complete system of representatives of the cycles of $\sigma$.
+\begin{enumerate}
+	\item For $c=1,\ldots,C_\sigma$ calculate $v^{(c)}_1, \dots, v^{(c)}_{p_c} \in \mathbb{R}^p$ as  \textcolor{red}{co to $e$}
+\begin{align*}
+v^{(c)}_1 &:= \sqrt{\frac{1}{p_c}} \sum_{k=0}^{p_c-1} e_{\sigma^k(i_c)}, \\
+v^{(c)}_{2\beta} 
+&:= \sqrt{\frac{2}{p_c}} \sum_{k=0}^{p_c-1} \cos \Bigl( \frac{2\pi \beta k}{p_c} \Bigr) e_{\sigma^k(i_c)} \qquad (1 \le \beta < p_c/2),\\
+v^{(c)}_{2\beta+1} 
+&:= \sqrt{\frac{2}{p_c}} \sum_{k=0}^{p_c-1} \sin \Bigl( \frac{2\pi \beta k}{p_c} \Bigr) e_{\sigma^k(i_c)}
+\qquad (1 \le \beta < p_c/2),\\
+v^{(c)}_{p_c} &:= \sqrt{\frac{1}{p_c}} \sum_{k=0}^{p_c-1} \cos (\pi k) e_{\sigma^k(i_c)}
+\qquad\quad\,\,\, (\mbox{if }p_c \mbox{ is even}).
+\end{align*}
+\item Construct an orthogonal matrix $U_\Gamma$ by arranging column vectors $\{v^{(c)}_k\}$, $1 \le c \le C_\sigma$, $1\le k \le p_c$, in the following way:
+	we put $v^{(c)}_k$ earlier than $v^{(c')}_{k'}$
+	if\\ 
+	{\rm (i)} $\frac{[k/2]}{p_c} < \frac{[k'/2]}{p_{c'}}$, or\\
+	{\rm (ii)} $\frac{[k/2]}{p_c} = \frac{[k'/2]}{p_{c'}}$ 
+	and $c<c'$, or\\
+	{\rm (iii)} $\frac{[k/2]}{p_c} = \frac{[k'/2]}{p_{c'}}$ and $c = c'$ and $k$ is even and $k'$ is odd.
+ \item For $\alpha=0,1,\ldots,\lfloor\frac{N}{2}\rfloor$ calculate
+	\begin{align*}	
+	r_\alpha^\ast &= \#\{c\in\{1,\ldots,C_\sigma\}\colon\alpha\, p_c  \mbox{ is a multiple of }N\},\\
+	d_\alpha^\ast &= \begin{cases} 1 & (\alpha = 0 \mbox{ or }N/2), \\ 2 & \mbox{(otherwise)}. \end{cases}
+	\end{align*}
+	Then set $L=\#\{\alpha\colon r_\alpha^\ast>0\}$,
+	$r = (r_\alpha^\ast\colon r_\alpha^\ast>0)$ 
+	and
+	$d = (d_\alpha^\ast\colon  r_\alpha^\ast>0)$.
+\end{enumerate}
+In the definition of $r_\alpha^\ast$ we treat $0$ as a multiple of $N$ and so $r_0^\ast=C_\sigma$. 
+
+Having the orthogonal matrix $U_\Gamma$, it is easy to find the block decomposition of the colored space. For each $S\in\mathcal{Z}_\Gamma$, we have
+\begin{equation}
+		\label{genform}
+		U_\Gamma^\top\cdot S\cdot U_\Gamma
+		= 
+		\begin{pmatrix} 
+			x_1 & & \\
+			& \ddots & \\
+		    & & x_L
+		\end{pmatrix},
+	\end{equation}
+where $x_i\in\mathrm{Sym}(r_i d_i;\mathbb{R})$. This block decomposition is crucial for finding the normalizing constant
+\[
+I_{\Gamma} (\delta,D)=  \int_{\mathcal{P}_\Gamma} \mathrm{Det}(k)^{(\delta-2)/2} e^{- \tfrac12 \mathrm{Tr}[D\cdot k]} dk.
+\]
+	
+### Normalizing constants
+We note that the formulas for normalizing constants for arbitrary subgroup $\Gamma\subset\mathfrak{S}_p$ are presented in [@GIKM]. Here we specialize these formulas to cyclic subgroups, which allows a significant simplification. 
+
+In the previous subsection, we defined structure constants $(r_i, d_i)_{i=1}^L$. 
+ We have
+\begin{align*}
+I_\Gamma(\delta,D)= e^{- A_\Gamma (\delta-2)/2 - B_\Gamma} 
+\prod_{i=1}^L \Gamma_{i}\left(1+ d_i (\delta+r_i-3)/2\right) \gamma_\Gamma\left(D/2,\delta\right),
+\end{align*}
+where 
+$A_\Gamma = \sum_{i=1}^L r_i\, d_i\log d_i$, $B_\Gamma = \frac12\sum_{i=1}^L r_i (1+(r_i-1)d_i/2)\log d_i$ and
+\begin{align*}
+\Gamma_{i}(\lambda)= 
+(2\pi)^{r_i(r_i-1) d_i/4}\prod_{k=1}^{r_i}\Gamma(\lambda-(k-1)d_i/2).
+\end{align*}
+For $S\in\mathcal{Z}_\Gamma$ let $x_i$ denote the $(r_i d_i)\times(r_i d_i)$ matrix defined in \eqref{genform}, $i=1,\ldots,L$. Then,
+\begin{align*}
+    \gamma_\Gamma(S,\delta) = \prod_{i=1}^L \mathrm{Det}(x_i)^{-(\delta+r_i-3)/2-1/d_i}.
+\end{align*}
+
+### Small $p$
+Recall that $\mathcal{C}$ is the number of cyclic subgroups of $\mathfrak{S}_p$.
+When $p$ is small (e.g., less than $9$), we can calculate posterior probabilities \eqref{eq:defpp} for all $c\in\mathcal{C}$ and find $\hat{\Gamma}$ from \eqref{eq:gammahat} based on exact calculations.
+
+### Large $p$
+ The cardinality of $\mathcal{C}$ grows super-exponentially with $p$; In particular, for $p=150$, the cardinality of $\mathcal{C}$ is roughly $10^{250}$ (see OEIS\footnote{The On-Line Encyclopedia of Integer Sequences, https://oeis.org/.} sequence A051625). This makes it computationally infeasible to calculate the quotients \eqref{eq:defpp} for all $c\in\mathcal{C}$. In such cases, the Markov chain Monte Carlo methods become very useful. 
+
+Below we define an irreducible Markov chain $(\sigma_t)_{t}$ that travels even bigger space, $\mathfrak{S}_p$, and run the Metropolis-Hastings algorithm for finding pre-estimates. Then, we take into account the fact that the actual search space is $\mathcal{C}$ and obtain the estimates of the posterior probabilities. The Metropolis-Hastings algorithm gives statistical guarantees that the estimates will converge to the actual values as the number of iterations goes to infinity.
+
+#### The Metropolis-Hastings algorithm
+A transposition is a permutation whose cyclic representation consists of one cycle with two elements and other length-$1$ cycles. Let $\mathcal{T}$ denote the set of all transpositions.
+
+	Starting from an arbitrary permutation $\sigma_0\in\mathfrak{S}_p$, repeat the following two steps for $t=1,\ldots, T$:
+	\begin{enumerate}
+		\item Sample $x_t$ uniformly from the set $\mathcal{T}$ and set $\sigma^\prime =\sigma_{t-1}\circ x_t$;
+		\item Accept the move $\sigma_t = \sigma^\prime$ with probability
+		\[
+		\min\left\{ 1, \frac{I_{\left<\sigma^\prime\right>}(\delta+n,D+U)\,\, I_{\left<\sigma_{t-1}\right>}(\delta,D) }{I_{\left<\sigma^\prime\right>}(\delta,D)\,\, I_{\left<\sigma_{t-1}\right>}(\delta+n,D+U)  } 
+		\right\}.
+		\]
+		If the move is rejected, set $\sigma_t=\sigma_{t-1}$.
+	\end{enumerate}
+In this way, we obtain a sequence of permutations $(\sigma_t)_{t=1}^T$, where $T$ is the number of steps made by the above algorithm. 
+
+Let $\Phi$ be the Euler's totient function, i.e., $\Phi(n)=\#\{k\in \{1,\ldots,n\}\colon k\mbox{ and }n\mbox{ are coprime}\}$.
+	We have as $T\to\infty$, $c\in\mathcal{C}$,
+	\begin{align*}
+	\hat{\pi}_c:=\frac{\sum_{t=1}^T {\bf 1}(\left<\sigma_t\right>=c) }{\Phi(c)  \sum_{t=1}^T  1/\Phi(\left<\sigma_t\right>)}\stackrel{a.s.}{\longrightarrow} \mathbb{P}\left(\Gamma=c|Z^{(1)},\ldots,Z^{(n)}\right).
+	\end{align*}
+In practice, one has the approximation $\hat{\pi}_c\approx \mathbb{P}\left(\Gamma=c|Z^{(1)},\ldots,Z^{(n)}\right)$ for large $T$. 
+The estimator of the group with highest posterior probability is given by
+\[
+\hat{\Gamma} = \operatorname{arg\,max}_{c\in(\sigma_t)_{t=1}^T} \mathbb{P}\left(\Gamma=c|Z^{(1)},\ldots,Z^{(n)}\right).
+\]
+
+## Scaling data
+We note models we consider are not invariant under changing the scale of variables: if $Z$ is invariant by subgroup $\Gamma$, then a random vector $\mathrm{diag}(\alpha)\cdot Z$ for $\alpha\in\mathbb{R}^p$ is in general not invariant under any permutation subgroup. 
+
+Therefore it is recommended to keep all variables in the same units. 
+
+
+ If $Z^{1},\ldots,Z^{(p)}$ is an i.i.d. sample from $\mathrm{N}_p(\mu,\Sigma)$, then we can center the data and take this fact by setting the parameter \code{was\_mean\_estimated = TRUE}. 
+ 
+It is tempting to standardize the normal sample so that $\Sigma$ has the unit diagonal. This approach has two drawbacks:
+\begin{itemize}
+    \item data rescaled by sample covariances does not have normal distribution, which violates the main assumption behind our model,
+    \item our procedure may favor cyclic subgroups whose generators consists of a single cycle as they correspond to matrices with constant diagonal.
+\end{itemize}
+Although such analyses in certain situations can yield interesting conclusions, due to the lack of statistical guarantees, we do not recommend standardizing the data, especially when for small $n$.
+
+## Using the gips package
+%M TODO: wpisać tu jeden z przykładów z README
+```{r, eval=FALSE}
+Kod piszemy tak
+```
+## Numerical simulations
+%M Breast cancer...
+## Summary
+%M Po zrobieniu poprzedniej sekcji
+This file is only a basic article template. For full details of \emph{The R Journal} style and information on how to prepare your article for submission, see the \href{https://journal.r-project.org/share/author-guide.pdf}{Instructions for Authors}.
+
 
 ## Section title in sentence case
 
@@ -56,14 +364,6 @@ This section may contain a figure such as Figure \ref{fig:Rlogo}.
 knitr::include_graphics('Rlogo-5.png')
 ```
 
-## Another section
-
-There will likely be several sections, perhaps including code snippets, such as:
-
-```{r}
-x <- 1:10
-plot(x)
-```
 
 ## Summary
 
