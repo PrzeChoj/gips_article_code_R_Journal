@@ -38,7 +38,9 @@ preamble: |
 # tex file. Don't forget to rename the bib file and change this example value.
 bibliography: RJreferences.bib
 
-output: rticles::rjournal_article
+output:
+  bookdown::pdf_book:
+    base_format: rticles::rjournal_article
 ---
 
 ## Introduction
