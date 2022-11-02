@@ -1,5 +1,5 @@
 ---
-title: Gips
+title: gips
 author:
   # see ?rjournal_article for more information
   - name: Przemysław Chojecki
@@ -38,16 +38,16 @@ output:
 ## Introduction
 
 High dimensional setting is and remains a challenge (@ElementsOfStatLearn i inne). 
-Carelessly performing standard tasks in it, like covariance matrix estimation or fitting a linear model, leads to results not supported by statistical theory. In this paper a problem of estimating covariance matrix $\Sigma$ of a multivariate Gaussian distribution with $\mathbf 0$ mean in high dimensional setting ($p >> n$) is considered. %M Może słowo, że original motivation to były modele grafowe, ale w oczywisty sposób ma to inne zastosowanie?
+Carelessly performing standard tasks in it, like covariance matrix estimation or fitting a linear model, leads to results not supported by statistical theory. In this paper a problem of estimating covariance matrix $\Sigma$ of a multivariate Gaussian distribution with $\mathbf 0$ mean in high dimensional setting ($p >> n$) is considered. 
+*M: Może słowo, że original motivation to były modele grafowe, ale w oczywisty sposób ma to inne zastosowanie? *
 
 If data is insufficient and some inference must be performed, one has to propose additional assumptions or restrictions. The canonical method of attacking the high-dimensionality problem is via RIDGE or LASSO estimation and model selection (used, for example, in \CRANpkg{huge}, \CRANpkg{hdi} and \CRANpkg{rags2ridges} packages). 
-%M TODO: Zdanie na temat interpratacji RIDGE/LASSO: This corresponds to restricting to models... 
-%M TODO: Zdanie na temat LDA/QDA. I może innych metod.
+*M TODO: Zdanie na temat interpratacji RIDGE/LASSO: This corresponds to restricting to models... M TODO: Zdanie na temat LDA/QDA. I może innych metod.*
 
 We propose an alternative approach, originating from works of [@AnderssonInvariant], [@RCOP] and others. It aims to impose on the matrix $\Sigma$ some symmetry conditions (a set of certain equalities that it must satisfy or a certain structure that it must follow) and thus reduce the number of samples required for a statistically correct inference. E.g., if $\Sigma$ is restricted to matrices, that have constant diagonal entries and constant off-diagonal entries, then the standard Maximium Likelihood Estimator (MLE) requires only 1 sample and delivers statistically correct result. 
-%M TODO: co ten przykład mówi o zmiennych?
+*M TODO: co ten przykład mówi o zmiennych?*
 
-A rich family of such symmetry conditions can be expressed using language of permutations (@AndersonPermSymmetry). Saying "the matrix $M$ is invariant under permutation $p$" is equivalent to saying "If you change the order of rows of $M$ according to $p$, and then change the order the columns according to $p$, then the emerging matrix $M'$ is the same as $M$." This is explored further in Preliminaries section.
+A rich family of such symmetry conditions can be expressed using language of permutations [@AndersonPermSymmetry]. Saying "the matrix $M$ is invariant under permutation $p$" is equivalent to saying "If you change the order of rows of $M$ according to $p$, and then change the order the columns according to $p$, then the emerging matrix $M'$ is the same as $M$." This is explored further in Preliminaries section.
 To our best knowledge, there are no software packages in R (and other programming languages), that tackle the subject of permutation symmetry.
 
 The \CRANpkg{gips} package, described in this paper, will help you with two things:
@@ -56,7 +56,7 @@ The \CRANpkg{gips} package, described in this paper, will help you with two thin
     \item Estimating covariance.
 \end{enumerate}
 
-%M Może tutaj nowa sekcja pt Motivation?
+*M Może tutaj nowa sekcja pt Motivation?*
 
 We argue that it is natural to expect certain symmetries in various applications. There are natural symmetries in the data from gene expression. Namely, expression of a given gene is triggered by binding the transcription factors to the gene transcription factor binding sites. The transcription factors are the proteins produced by other genes, say regulatory genes. In the gene network there are often many genes triggered by the same regulatory genes and it makes sense to assume that their relative expressions depend on the abundance of proteins of the regulatory genes (i.e. gene expressions) in a similar way. \CRANpkg{gips} can be used to identify genes having the same function or groups of genes having similar interactions or regulated by the same mechanism. 
 
@@ -85,16 +85,12 @@ names(Z) <- NULL
 my_add_text <- function(gg_plot_object){
   my_col_names <- c("deaths after placebo", "deaths after Aspirin",
                     "treated with placebo", "treated with Aspirin")
-  
   suppressMessages( # message from ggplot2
     out <- gg_plot_object +
-      ggplot2::scale_x_continuous(labels = my_col_names,
-                                  breaks = 1:4) +
-      ggplot2::scale_y_reverse(labels = my_col_names,
-                               breaks = 1:4) +
+      ggplot2::scale_x_continuous(labels = my_col_names, breaks = 1:4) +
+      ggplot2::scale_y_reverse(labels = my_col_names, breaks = 1:4) +
       ggplot2::theme(axis.text.x = ggplot2::element_text(angle=8))
   )
-  
   out
 }
 
@@ -103,7 +99,6 @@ my_add_text <- function(gg_plot_object){
 dim(Z)
 number_of_observations <- nrow(Z) # 7
 perm_size <- ncol(Z) # 4
-
 S <- cov(Z)
 round(S)
 ```
@@ -135,7 +130,7 @@ g_with_perm <- gips(S, number_of_observations, perm="(3,4)")
 S_projected <- project_matrix(S, g_with_perm)
 round(S_projected)
 
-my_add_text(plot(g_MAP, type = "heatmap"))
+my_add_text(plot(g_with_perm, type = "heatmap"))
 ```
 
 This `S\_projected` matrix can now be interpreted as a more stable covariance matrix estimator.
@@ -170,14 +165,18 @@ If $\Gamma=\mathfrak{S}_p$, then the above conditions imply that all diagonal en
 
 ### Other preliminaries
 
-	Note that the mapping $\Gamma\mapsto\mathcal{Z}_\Gamma$ is not one-to-one. In particular, it is easy to see that with $p=3$ we have $\mathcal{Z}_{\left<(1,2,3)\right>}=\mathcal{Z}_{\mathfrak{S}_3}$.
-	In view of \eqref{eq:sigma}, we see that $Z$ is invariant by $\Gamma$ if and only if $\Sigma\in \mathcal{P}_{\Gamma}$.
+Note that the mapping $\Gamma\mapsto\mathcal{Z}_\Gamma$ is not one-to-one. 
+In particular, it is easy to see that with $p=3$ we have $\mathcal{Z}_{\left<(1,2,3)\right>}=\mathcal{Z}_{\mathfrak{S}_3}$.
+In view of \eqref{eq:sigma}, we see that $Z$ is invariant by $\Gamma$ if and only if $\Sigma\in \mathcal{P}_{\Gamma}$.
 
-	 Each permutation $\sigma\in\mathfrak{S}_p$
-	can be represented in a cyclic form. E.g., if $\sigma\colon 1\mapsto 2, 2\mapsto 1, 3\mapsto 3$, then $\sigma=(1,2)(3)$. The number of cycles, denoted hereafter by  $C_\sigma$, is the same for all such cyclic representations. Note that in $C_\sigma$, we also count the cycles of length $1$. 
+Each permutation $\sigma\in\mathfrak{S}_p$
+can be represented in a cyclic form. E.g., if $\sigma\colon 1\mapsto 2, 2\mapsto 1, 3\mapsto 3$, then $\sigma=(1,2)(3)$. The number of cycles, denoted hereafter by  $C_\sigma$, is the same for all such cyclic representations. Note that in $C_\sigma$, we also count the cycles of length $1$. 
 	
-	We say that a permutation subgroup $\Gamma\subset\mathfrak{S}_p$ is cyclic if $\Gamma=\{\sigma, \sigma^2,\ldots,\sigma^N\}=:\left<\sigma\right>$ for some $\sigma\in\mathfrak{S}_p$, where $N$ is the smallest positive integer for which $\sigma^N=\mathrm{id}$.  Then $N$ is called the order of the subgroup $\Gamma$.  
-	If $p_i$ is the length of $i$th cycle in a cyclic decomposition of $\sigma\in\mathfrak{S}_p$, then $N$ equals the least common multiple of $p_1,\,p_2, \dots, p_{C_\sigma}$. We note that the mapping $\sigma\mapsto\left<\sigma\right>$ is not one-to-one. Indeed, we have $\left<\sigma\right>=\langle\sigma^k\rangle$ for all $k=1,\ldots,N-1$, which are coprime with $N$. 
+We say that a permutation subgroup $\Gamma\subset\mathfrak{S}_p$ is cyclic if 
+$\Gamma=\{\sigma, \sigma^2,\ldots,\sigma^N\}=:\left<\sigma\right>$
+for some $\sigma\in\mathfrak{S}_p$, where $N$ is the smallest positive integer for which $\sigma^N=\mathrm{id}$.  Then $N$ is called the order of the subgroup $\Gamma$. If $p_i$ is the length of $i$th cycle in a cyclic decomposition of $\sigma\in\mathfrak{S}_p$, then $N$ equals the least common multiple of $p_1,\,p_2, \dots, p_{C_\sigma}$. 
+We note that the mapping $\sigma\mapsto\left<\sigma\right>$ is not one-to-one. 
+Indeed, we have $\left<\sigma\right>=\langle\sigma^k\rangle$ for all $k=1,\ldots,N-1$, which are coprime with $N$. 
 
 The important feature of cyclic subgroups is that they correspond to different colored spaces. More precisely, if $\mathcal{Z}_{\left<\sigma\right>}=\mathcal{Z}_{\left<\sigma'\right>}$ for some $\sigma,\sigma'\in\mathfrak{S}_p$, then $\left<\sigma\right>=\left<\sigma'\right>$.
 	
@@ -224,9 +223,9 @@ Following the Bayesian paradigm, we choose the cyclic subgroup with the highest 
 
 ### Block decomposition of the colored space
 
-	Let $\Gamma=\left<\sigma\right>$ be a cyclic group of order $N$. We present the steps required to find the ingredients, which are necessary for the calculation of the normalizing constants $I_\Gamma(\delta,D)$.
+Let $\Gamma=\left<\sigma\right>$ be a cyclic group of order $N$. We present the steps required to find the ingredients, which are necessary for the calculation of the normalizing constants $I_\Gamma(\delta,D)$.
 	
-	Let $p_i$ be the length of $i$th cycle in a cyclic decomposition of $\sigma\in\mathfrak{S}_p$ and let $\{i_1, \dots, i_{C_\sigma}\}$ be a complete system of representatives of the cycles of $\sigma$.
+Let $p_i$ be the length of $i$th cycle in a cyclic decomposition of $\sigma\in\mathfrak{S}_p$ and let $\{i_1, \dots, i_{C_\sigma}\}$ be a complete system of representatives of the cycles of $\sigma$.
 \begin{enumerate}
 	\item For $c=1,\ldots,C_\sigma$ calculate $v^{(c)}_1, \dots, v^{(c)}_{p_c} \in \mathbb{R}^p$ as  \textcolor{red}{co to $e$}
 \begin{align*}
@@ -299,14 +298,14 @@ Recall that $\mathcal{C}$ is the number of cyclic subgroups of $\mathfrak{S}_p$.
 When $p$ is small (e.g., less than $9$), we can calculate posterior probabilities \eqref{eq:defpp} for all $c\in\mathcal{C}$ and find $\hat{\Gamma}$ from \eqref{eq:gammahat} based on exact calculations.
 
 ### Large $p$
- The cardinality of $\mathcal{C}$ grows super-exponentially with $p$; In particular, for $p=150$, the cardinality of $\mathcal{C}$ is roughly $10^{250}$ (see OEIS\footnote{The On-Line Encyclopedia of Integer Sequences, https://oeis.org/.} sequence A051625). This makes it computationally infeasible to calculate the quotients \eqref{eq:defpp} for all $c\in\mathcal{C}$. In such cases, the Markov chain Monte Carlo methods become very useful. 
+ The cardinality of $\mathcal{C}$ grows super-exponentially with $p$; In particular, for $p=150$, the cardinality of $\mathcal{C}$ is roughly $10^{250}$ (see OEIS ^[The On-Line Encyclopedia of Integer Sequences, https://oeis.org/.] sequence A051625). This makes it computationally infeasible to calculate the quotients \eqref{eq:defpp} for all $c\in\mathcal{C}$. In such cases, the Markov chain Monte Carlo methods become very useful. 
 
 Below we define an irreducible Markov chain $(\sigma_t)_{t}$ that travels even bigger space, $\mathfrak{S}_p$, and run the Metropolis-Hastings algorithm for finding pre-estimates. Then, we take into account the fact that the actual search space is $\mathcal{C}$ and obtain the estimates of the posterior probabilities. The Metropolis-Hastings algorithm gives statistical guarantees that the estimates will converge to the actual values as the number of iterations goes to infinity.
 
 #### The Metropolis-Hastings algorithm
 A transposition is a permutation whose cyclic representation consists of one cycle with two elements and other length-$1$ cycles. Let $\mathcal{T}$ denote the set of all transpositions.
 
-	Starting from an arbitrary permutation $\sigma_0\in\mathfrak{S}_p$, repeat the following two steps for $t=1,\ldots, T$:
+Starting from an arbitrary permutation $\sigma_0\in\mathfrak{S}_p$, repeat the following two steps for $t=1,\ldots, T$:
 	\begin{enumerate}
 		\item Sample $x_t$ uniformly from the set $\mathcal{T}$ and set $\sigma^\prime =\sigma_{t-1}\circ x_t$;
 		\item Accept the move $\sigma_t = \sigma^\prime$ with probability
@@ -345,25 +344,13 @@ It is tempting to standardize the normal sample so that $\Sigma$ has the unit di
 Although such analyses in certain situations can yield interesting conclusions, due to the lack of statistical guarantees, we do not recommend standardizing the data, especially when for small $n$.
 
 ## Using the gips package
-%M TODO: wpisać tu jeden z przykładów z README
+*M TODO: wpisać tu jeden z przykładów z README*
 ```{r, eval=FALSE}
 Kod piszemy tak
 ```
 ## Numerical simulations
+
 %M Breast cancer...
-## Summary
-%M Po zrobieniu poprzedniej sekcji
-This file is only a basic article template. For full details of \emph{The R Journal} style and information on how to prepare your article for submission, see the \href{https://journal.r-project.org/share/author-guide.pdf}{Instructions for Authors}.
-
-
-## Section title in sentence case
-
-This section may contain a figure such as Figure \ref{fig:Rlogo}.
-
-```{r, Rlogo, echo=FALSE, fig.cap='The logo of R.', out.width='2in', fig.align='center', fig.pos='htbp'}
-knitr::include_graphics('Rlogo-5.png')
-```
-
 
 ## Summary
 
