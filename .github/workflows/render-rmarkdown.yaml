@@ -23,6 +23,13 @@ jobs:
 
       - uses: r-lib/actions/setup-renv@v2
       
+      - name: Install packages
+        run: install.packages("gips", dependencies=TRUE)
+        shell: Rscript {0}
+        
+      - name: Install latex compiler
+        run: sudo apt install texlive
+      
       - name: Render Rmarkdown files and Commit Results
         run: |
           RMD_PATH=($(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep '[.]Rmd$'))
